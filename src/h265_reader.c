@@ -172,6 +172,26 @@ int h265_reader_parse_nalu(struct h265_reader *reader,
 }
 
 
+int h265_parse_nalu_header(const uint8_t *buf,
+			   size_t len,
+			   struct h265_nalu_header *nh)
+{
+	int res = 0;
+	struct h265_bitstream bs;
+
+	ULOG_ERRNO_RETURN_ERR_IF(buf == NULL, EINVAL);
+	ULOG_ERRNO_RETURN_ERR_IF(nh == NULL, EINVAL);
+
+	memset(nh, 0, sizeof(*nh));
+
+	h265_bs_cinit(&bs, buf, len, 1);
+	res = _h265_read_nalu_header(&bs, nh);
+	h265_bs_clear(&bs);
+
+	return res;
+}
+
+
 int h265_parse_vps(const uint8_t *buf, size_t len, struct h265_vps *vps)
 {
 	struct h265_bitstream bs;

@@ -15,9 +15,15 @@ LOCAL_SRC_FILES := \
 	src/h265_reader.c \
 	src/h265_types.c \
 	src/h265_writer.c
+
 LOCAL_PRIVATE_LIBRARIES := \
 	json \
 	libulog
+
+ifeq ("$(TARGET_OS)","windows")
+  LOCAL_LDLIBS += -lws2_32
+endif
+
 include $(BUILD_LIBRARY)
 
 include $(CLEAR_VARS)

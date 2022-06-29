@@ -30,8 +30,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
 #include <unistd.h>
+
+#ifdef _WIN32
+#	include "windows.h"
+#else
+#	include <sys/mman.h>
+#endif
 
 #define ULOG_TAG h265_dump
 #include <ulog.h>
@@ -42,6 +47,16 @@ ULOG_DECLARE_TAG(h265_dump);
 
 
 struct app {
+	const char *inpath;
+	const char *outpath;
+	void *data;
+	size_t size;
+#ifdef _WIN32
+	HANDLE infile;
+	HANDLE map;
+#else
+	int fd;
+#endif
 	struct h265_reader *reader;
 	struct h265_dump *dump;
 	FILE *fout;
@@ -60,6 +75,105 @@ struct app {
 #	define READER_FLAGS 0
 #	define DUMP_FLAGS 0
 #endif
+
+
+static void unmap_file(struct app *app)
+{
+#ifdef _WIN32
+	if (app->data != NULL)
+		UnmapViewOfFile(app->data);
+	app->data = NULL;
+	if (app->map != INVALID_HANDLE_VALUE)
+		CloseHandle(app->map);
+	app->map = INVALID_HANDLE_VALUE;
+	if (app->infile != INVALID_HANDLE_VALUE)
+		CloseHandle(app->infile);
+	app->infile = INVALID_HANDLE_VALUE;
+#else
+	if (app->fd >= 0) {
+		if (app->data != NULL)
+			munmap(app->data, app->size);
+		app->data = NULL;
+		close(app->fd);
+		app->fd = -1;
+	}
+#endif
+}
+
+
+static int map_file(struct app *app)
+{
+	int res;
+
+#ifdef _WIN32
+	LARGE_INTEGER filesize;
+
+	app->infile = CreateFileA(app->inpath,
+				  GENERIC_READ,
+				  0,
+				  NULL,
+				  OPEN_EXISTING,
+				  FILE_ATTRIBUTE_NORMAL,
+				  NULL);
+	if (app->infile == INVALID_HANDLE_VALUE) {
+		res = -EIO;
+		ULOG_ERRNO("CreateFileA('%s')", -res, app->inpath);
+		goto error;
+	}
+
+	app->map =
+		CreateFileMapping(app->infile, NULL, PAGE_READONLY, 0, 0, NULL);
+	if (app->map == INVALID_HANDLE_VALUE) {
+		res = -EIO;
+		ULOG_ERRNO("CreateFileMapping('%s')", -res, app->inpath);
+		goto error;
+	}
+
+	res = GetFileSizeEx(app->infile, &filesize);
+	if (res == 0) {
+		res = -EIO;
+		ULOG_ERRNO("GetFileSizeEx('%s')", -res, app->inpath);
+		goto error;
+	}
+	app->size = filesize.QuadPart;
+
+	app->data = MapViewOfFile(app->map, FILE_MAP_READ, 0, 0, 0);
+	if (app->data == NULL) {
+		res = -EIO;
+		ULOG_ERRNO("MapViewOfFile('%s')", -res, app->inpath);
+		goto error;
+	}
+#else
+	/* Try to open input file */
+	app->fd = open(app->inpath, O_RDONLY);
+	if (app->fd < 0) {
+		res = -errno;
+		ULOG_ERRNO("open('%s')", -res, app->inpath);
+		goto error;
+	}
+
+	/* Get size and map it */
+	app->size = lseek(app->fd, 0, SEEK_END);
+	if (app->size == (size_t)-1) {
+		res = -errno;
+		ULOG_ERRNO("lseek", -res);
+		goto error;
+	}
+
+	app->data = mmap(NULL, app->size, PROT_READ, MAP_PRIVATE, app->fd, 0);
+	if (app->data == MAP_FAILED) {
+		res = -errno;
+		ULOG_ERRNO("mmap", -res);
+		goto error;
+	}
+#endif
+
+	return 0;
+
+error:
+	unmap_file(app);
+	return res;
+}
 
 
 static void dump_buf(FILE *fout, const uint8_t *buf, size_t len)
@@ -196,15 +310,18 @@ int main(int argc, char *argv[])
 	int res = 0;
 	int idx = 0;
 	int c = 0;
-	int fd = -1;
-	void *data = NULL;
-	size_t size = 0, off = 0;
+	size_t off = 0;
 	struct app app = {0};
-	const char *inpath = NULL;
-	const char *outpath = NULL;
 	struct h265_dump_cfg dump_cfg = {
 		.type = H265_DUMP_TYPE_JSON,
 	};
+
+#ifdef _WIN32
+	app.infile = INVALID_HANDLE_VALUE;
+	app.map = INVALID_HANDLE_VALUE;
+#else
+	app.fd = -1;
+#endif
 
 	welcome(argv[0]);
 
@@ -226,7 +343,7 @@ int main(int argc, char *argv[])
 			break;
 
 		case 'o':
-			outpath = optarg;
+			app.outpath = optarg;
 			break;
 
 		case ARGS_ID_JSON_PRETTY:
@@ -251,33 +368,16 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	inpath = argv[optind];
-	if (inpath == NULL) {
+	app.inpath = argv[optind];
+	if (app.inpath == NULL) {
 		fprintf(stderr, "Missing input path\n");
 		exit(EXIT_FAILURE);
 	}
 
-	/* Try to open input file */
-	fd = open(inpath, O_RDONLY);
-	if (fd < 0) {
-		res = -errno;
-		ULOG_ERRNO("open('%s')", -res, inpath);
+	/* Map the input file */
+	res = map_file(&app);
+	if (res < 0)
 		goto out;
-	}
-
-	/* Get size and map it */
-	size = lseek(fd, 0, SEEK_END);
-	if (size == (size_t)-1) {
-		res = -errno;
-		ULOG_ERRNO("lseek", -res);
-		goto out;
-	}
-	data = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
-	if (data == MAP_FAILED) {
-		res = -errno;
-		ULOG_ERRNO("mmap", -res);
-		goto out;
-	}
 
 	/* Create reader object */
 	res = h265_reader_new(&cbs, &app, &app.reader);
@@ -294,11 +394,11 @@ int main(int argc, char *argv[])
 	}
 
 	/* Create output file */
-	if (outpath != NULL) {
-		app.fout = fopen(outpath, "w");
+	if (app.outpath != NULL) {
+		app.fout = fopen(app.outpath, "w");
 		if (app.fout == NULL) {
 			res = -errno;
-			ULOG_ERRNO("fopen('%s')", -res, outpath);
+			ULOG_ERRNO("fopen('%s')", -res, app.outpath);
 			goto out;
 		}
 	} else {
@@ -307,7 +407,8 @@ int main(int argc, char *argv[])
 	}
 
 	/* Parse stream */
-	res = h265_reader_parse(app.reader, READER_FLAGS, data, size, &off);
+	res = h265_reader_parse(
+		app.reader, READER_FLAGS, app.data, app.size, &off);
 	if (res < 0) {
 		ULOG_ERRNO("h265_reader_parse", -res);
 		goto out;
@@ -327,11 +428,7 @@ out:
 	}
 	if (app.fout != NULL && app.fout != stderr)
 		fclose(app.fout);
-	if (fd >= 0) {
-		if (data != NULL)
-			munmap(data, size);
-		close(fd);
-	}
+	unmap_file(&app);
 
 	return res >= 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

@@ -65,6 +65,12 @@ int h265_reader_parse_nalu(struct h265_reader *reader,
 
 
 H265_API
+int h265_parse_nalu_header(const uint8_t *buf,
+			   size_t len,
+			   struct h265_nalu_header *nh);
+
+
+H265_API
 int h265_parse_vps(const uint8_t *buf, size_t len, struct h265_vps *vps);
 
 
