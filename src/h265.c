@@ -242,6 +242,7 @@ int h265_get_info(const uint8_t *vps,
 	res = h265_get_info_from_ps(parsed_vps, parsed_sps, parsed_pps, info);
 
 out:
+	h265_pps_clear(parsed_pps);
 	free(parsed_pps);
 	free(parsed_sps);
 	free(parsed_vps);

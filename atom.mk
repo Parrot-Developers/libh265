@@ -6,7 +6,7 @@ LOCAL_MODULE := libh265
 LOCAL_CATEGORY_PATH := libs
 LOCAL_DESCRIPTION := H.265 bitstream reader/writer library
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include
-LOCAL_CFLAGS := -DH265_API_EXPORTS -fvisibility=hidden -std=gnu99
+LOCAL_CFLAGS := -DH265_API_EXPORTS -fvisibility=hidden -std=gnu99 -D_GNU_SOURCE
 LOCAL_SRC_FILES := \
 	src/h265.c \
 	src/h265_bitstream.c \

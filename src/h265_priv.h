@@ -27,7 +27,6 @@
 #ifndef _H265_PRIV_H_
 #define _H265_PRIV_H_
 
-#define _GNU_SOURCE
 #include <assert.h>
 #include <errno.h>
 #include <inttypes.h>
