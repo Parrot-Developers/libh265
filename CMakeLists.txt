@@ -14,6 +14,9 @@ set(LIB_SOURCES
 add_library(h265 ${LIB_SOURCES})
 
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
+set_target_properties(h265 PROPERTIES
+                    POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS}
+)
 
 target_include_directories(h265 PUBLIC
                             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -30,5 +33,5 @@ if(WIN32)
 endif()
 
 find_package(json-c CONFIG REQUIRED)
-target_link_libraries(h265 json-c::json-c json-c::json-c-static)
+target_link_libraries(h265 json-c::json-c)
 target_link_libraries(h265 ulog)
