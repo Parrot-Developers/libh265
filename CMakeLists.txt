@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.15)
 project(h265 VERSION 1.0)
 
+set_up_rpath()
+
 set(LIB_SOURCES
     src/h265.c
     src/h265_bitstream.c
@@ -31,6 +33,7 @@ endif()
 
 find_package(json-c CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} 
+                    PRIVATE
                       json-c::json-c 
                       json-c::json-c-static
                       ulog
