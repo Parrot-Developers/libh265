@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 project(h265 VERSION 1.0)
 
-set_up_rpath()
-
 set(LIB_SOURCES
     src/h265.c
     src/h265_bitstream.c
@@ -14,6 +12,13 @@ set(LIB_SOURCES
 )
 
 add_library(${PROJECT_NAME} ${LIB_SOURCES})
+
+# checks if set up rpath exists for install
+if(COMMAND set_up_rpath)
+    set_up_rpath()
+else()
+    message("Set up rpath not defined!")
+endif()
 
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 set_target_properties(h265 PROPERTIES
