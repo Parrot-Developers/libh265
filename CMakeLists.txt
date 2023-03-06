@@ -39,7 +39,6 @@ find_package(json-c CONFIG REQUIRED)
 if(WIN32)
     target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32
                       json-c::json-c 
-                      json-c::json-c-static
                       ulog
 
         )
@@ -48,7 +47,6 @@ else()
 target_link_libraries(${PROJECT_NAME} 
                     PRIVATE
                       json-c::json-c 
-                      json-c::json-c-static
                       ulog
                       )
 endif()
