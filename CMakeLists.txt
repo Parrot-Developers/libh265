@@ -70,7 +70,6 @@ else()
             FILES "${_file}"
             )
         endforeach()
-        list(LENGTH _u_deps _u_length)
     ]])
 endif()
 
