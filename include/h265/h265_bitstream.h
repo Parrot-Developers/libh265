@@ -91,7 +91,7 @@ int h265_find_nalu(const uint8_t *buf, size_t len, size_t *start, size_t *end);
  * error
  */
 H265_API
-int h265_bs_write_bits(struct h265_bitstream *bs, uint32_t v, uint32_t n);
+int h265_bs_write_bits(struct h265_bitstream *bs, uint64_t v, uint32_t n);
 
 
 H265_API

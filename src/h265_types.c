@@ -92,7 +92,7 @@ int h265_pps_cpy(struct h265_pps *dst_pps, const struct h265_pps *src_pps)
 	dst_pps->row_height_minus1 = NULL;
 
 	dst_pps->column_width_minus1 =
-		malloc(sizeof(src_pps->column_width_minus1) *
+		malloc(sizeof(*src_pps->column_width_minus1) *
 		       src_pps->num_tile_columns_minus1);
 	if (dst_pps->column_width_minus1 == NULL) {
 		ret = -ENOMEM;
@@ -100,11 +100,12 @@ int h265_pps_cpy(struct h265_pps *dst_pps, const struct h265_pps *src_pps)
 	}
 	memcpy(dst_pps->column_width_minus1,
 	       src_pps->column_width_minus1,
-	       sizeof(src_pps->column_width_minus1) *
+	       sizeof(*src_pps->column_width_minus1) *
 		       src_pps->num_tile_columns_minus1);
 
-	dst_pps->row_height_minus1 = malloc(sizeof(src_pps->row_height_minus1) *
-					    src_pps->num_tile_rows_minus1);
+	dst_pps->row_height_minus1 =
+		malloc(sizeof(*src_pps->row_height_minus1) *
+		       src_pps->num_tile_rows_minus1);
 	if (dst_pps->row_height_minus1 == NULL) {
 		ret = -ENOMEM;
 		goto error;
